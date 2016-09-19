@@ -30,7 +30,7 @@ def get_date_from_folder(folder):
 
 class Extractor:
     CORPUS_ROOT_FOLDER_DEFAULT = ""
-    output_folder = "/home/stephane/Playground/PycharmProjects/Classification/DataPrep/output"
+    output_folder = "/home/stephane/Playground/PycharmProjects/machine-learning/Classification/DataPrep/output"
 
     def __init__(self, corpus_root_folder, output_folder):
         self.logger = logging.getLogger(__name__)
@@ -39,22 +39,46 @@ class Extractor:
         self.files_features = {}
         self.dated_features = {}
         self.topics = {}
+        self.max_topic = 6666
 
         if corpus_root_folder is not None:
             self.corpus_root_folder = corpus_root_folder
         else:
             self.corpus_root_folder = Extractor.CORPUS_ROOT_FOLDER_DEFAULT
         self.output_folder = output_folder
-        self.store = HDFStore(os.path.join(self.output_folder, 'store.h5'))
+        # self.store = HDFStore(os.path.join(self.output_folder, 'store.h5'))
 
         logger.info("Initialized with corpus root folder: %s", self.corpus_root_folder)
+
+    def get_max_topic(self):
+        self.max_topic = 0
+        idx = 0
+        for root, dirs, files_list in os.walk(self.corpus_root_folder):
+            logger.debug('root: {r}'.format(r=root))
+            logger.debug('dirs: {d}'.format(d=dirs))
+            # if idx > 5000:
+            #     break
+            if not len(files_list) > 0:
+                continue
+            for semantic_result_file in files_list:
+                if os.path.isfile(os.path.join(root, semantic_result_file)):
+                    _, file_features = self._process_xml(root, semantic_result_file)
+                    idx += 1
+                    if idx % 100 == 0:
+                        logger.info("%s files processed...", idx)
+                    for feature in file_features:
+                        if feature > self.max_topic:
+                            self.max_topic = feature
+                            logger.info('Found new max topic: {m}'.format(m=feature))
+
+        logger.info('Final max topic found: {m}'.format(m=self.max_topic))
 
     def process_enrichment_files(self):
         idx = 0
         for root, dirs, files_list in os.walk(self.corpus_root_folder):
             logger.debug('root: {r}'.format(r=root))
             logger.debug('dirs: {d}'.format(d=dirs))
-            if idx > 500:
+            if idx > 50000:
                 break
             if not len(files_list) > 0:
                 continue
@@ -69,14 +93,14 @@ class Extractor:
                     if jt and file_features:
                         self.files_features[jt] = tuple(file_features)
                         self.dated_features[date].extend(file_features)
-                        idx += 1
+                    idx += 1
                     if idx % 100 == 0:
                         logger.info("%s files processed...", idx)
 
         self.logger.info("Total nb files processed: %s", idx)
         self.create_dataframes()
-#        self.create_dated_dataframe()
-#        self.store_vectors()
+        self.create_dated_dataframe()
+        self.store_vectors()
 
     def store_vectors(self):
         with open(os.path.join(Extractor.output_folder, 'files_features.pkl'), 'wb') as out:
@@ -201,6 +225,7 @@ class Extractor:
         logger.info("Dated DataFrame saved to disk")
         logger.debug(df.head(10))
         df.info()
+
 
 def main():
 
