@@ -1,12 +1,12 @@
 import datetime
 import logging
 import os
+import pprint
 import sys
 import timing
 import pickle
 
 import pandas as pd
-from pandas import HDFStore
 import numpy as np
 
 from DataPrep import config, logger
@@ -28,14 +28,29 @@ def get_date_from_folder(folder):
     return datetime.date(year, month, day)
 
 
+def strip_extension(file):
+    return file.split('.')[0]
+
+
+def strip_uri(uri):
+    """Extract "raw" topic identifier from uri
+
+    :param uri: "http://kim.oecd.org/Taxonomy/Topics#T187"
+    :return: 187
+    """
+    parts = uri.split("/")
+    return parts[-1][8::]
+
+
 class Extractor:
     CORPUS_ROOT_FOLDER_DEFAULT = ""
-    output_folder = "/home/stephane/Playground/PycharmProjects/machine-learning/Classification/DataPrep/output"
+    OUTPUT_FOLDER_DEFAULT = "/home/stephane/Playground/PycharmProjects/machine-learning/Classification/DataPrep/output"
 
-    def __init__(self, corpus_root_folder, output_folder):
+    def __init__(self, corpus_root_folder, output_folder, train=False):
         self.logger = logging.getLogger(__name__)
 
-        self.processed_files = []
+        self.train = train
+        self.processed_files = {}
         self.files_features = {}
         self.dated_features = {}
         self.topics = {}
@@ -45,10 +60,24 @@ class Extractor:
             self.corpus_root_folder = corpus_root_folder
         else:
             self.corpus_root_folder = Extractor.CORPUS_ROOT_FOLDER_DEFAULT
-        self.output_folder = output_folder
-        # self.store = HDFStore(os.path.join(self.output_folder, 'store.h5'))
+
+        if output_folder is not None:
+            self.output_folder = output_folder
+        else:
+            self.output_folder = Extractor.OUTPUT_FOLDER_DEFAULT
+        if self.train:
+            self.output_folder += '/train'
 
         logger.info("Initialized with corpus root folder: %s", self.corpus_root_folder)
+        self.training_jts = self.load_training_jt()
+        pprint.pprint(self.training_jts)
+
+    def load_training_jt(self):
+        logger.info("Loading training jt")
+        with open(os.path.join(self.output_folder, 'mappings.pkl'), 'rb') as input_file:
+            mappings = pickle.load(input_file)
+
+        return [jt for jt in mappings.keys()]
 
     def get_max_topic(self):
         self.max_topic = 0
@@ -87,8 +116,10 @@ class Extractor:
             if date not in self.dated_features:
                 self.dated_features[date] = []
             for semantic_result_file in files_list:
+                if self.train and strip_extension(semantic_result_file) not in self.training_jts:
+                    continue
                 if os.path.isfile(os.path.join(root, semantic_result_file)):
-                    logger.debug("processing: %s/%s", root, semantic_result_file)
+                    logger.info("processing: %s/%s", root, semantic_result_file)
                     jt, file_features = self._process_xml(root, semantic_result_file)
                     if jt and file_features:
                         self.files_features[jt] = tuple(file_features)
@@ -103,9 +134,9 @@ class Extractor:
         self.store_vectors()
 
     def store_vectors(self):
-        with open(os.path.join(Extractor.output_folder, 'files_features.pkl'), 'wb') as out:
+        with open(os.path.join(self.output_folder, 'files_features.pkl'), 'wb') as out:
             pickle.dump(self.files_features, out)
-        with open(os.path.join(Extractor.output_folder, 'topics.pkl'), 'wb') as out:
+        with open(os.path.join(self.output_folder, 'topics.pkl'), 'wb') as out:
             pickle.dump(self.topics, out)
 
     def create_dated_dataframe(self):
@@ -157,7 +188,7 @@ class Extractor:
 
     def _process_xml(self, folder, result_file):
         # First of all, take care of potential duplicates in the corpus
-        jt = self._strip_extension(result_file)
+        jt = strip_extension(result_file)
         if result_file in self.processed_files:
             logger.info("File %s already processed.", result_file)
             if not self._is_posterior(result_file, folder):
@@ -178,29 +209,15 @@ class Extractor:
         file_features = []
 
         for subject in root.findall("./annotation/subject"):
-            topic_id = int(self._strip_uri(subject.get('uri')))
+            topic_id = int(strip_uri(subject.get('uri')))
             label_en = subject.get('label_en')
             # relevance = 'N' if subject.get('relevance') == 'normal' else 'H'
             file_features.append(topic_id)
             if topic_id not in self.topics:
                 self.topics[topic_id] = label_en
 
-        self.processed_files.append(result_file)
+        self.processed_files[result_file] = folder
         return jt, file_features
-
-    @staticmethod
-    def _strip_extension(file):
-        return file.split('.')[0]
-
-    @staticmethod
-    def _strip_uri(uri):
-        """Extract "raw" topic identifier from uri
-
-        :param uri: "http://kim.oecd.org/Taxonomy/Topics#T187"
-        :return: 187
-        """
-        parts = uri.split("/")
-        return parts[-1][8::]
 
     def _is_posterior(self, result_file, current_folder):
         previous_folder = self.processed_files[result_file]
@@ -221,7 +238,7 @@ class Extractor:
         :param key:
         :return: None
         """
-        df.to_hdf(os.path.join(Extractor.output_folder, target_file_name), key=key)
+        df.to_hdf(os.path.join(self.output_folder, target_file_name), key=key)
         logger.info("Dated DataFrame saved to disk")
         logger.debug(df.head(10))
         df.info()
@@ -232,7 +249,7 @@ def main():
     corpus_root = config.get('MAIN', 'corpus_root')
     output_dir = config.get('MAIN', 'output_dir')
 
-    extractor = Extractor(corpus_root_folder=corpus_root, output_folder=output_dir)
+    extractor = Extractor(corpus_root_folder=corpus_root, output_folder=output_dir, train=True)
     extractor.process_enrichment_files()
 
     logger.info("File processing complete.")
