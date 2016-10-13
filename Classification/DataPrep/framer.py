@@ -69,8 +69,9 @@ class Extractor:
             self.output_folder += '/train'
 
         logger.info("Initialized with corpus root folder: %s", self.corpus_root_folder)
-        self.training_jts = self.load_training_jt()
-        pprint.pprint(self.training_jts)
+        if self.train:
+            self.training_jts = self.load_training_jt()
+            pprint.pprint(self.training_jts)
 
     def load_training_jt(self):
         logger.info("Loading training jt")
@@ -107,8 +108,8 @@ class Extractor:
         for root, dirs, files_list in os.walk(self.corpus_root_folder):
             logger.debug('root: {r}'.format(r=root))
             logger.debug('dirs: {d}'.format(d=dirs))
-            if idx > 50000:
-                break
+            # if idx > 50000:
+            #     break
             if not len(files_list) > 0:
                 continue
             date = get_date_from_folder(root)
@@ -193,11 +194,12 @@ class Extractor:
             logger.info("File %s already processed.", result_file)
             if not self._is_posterior(result_file, folder):
                 logger.info("A more recent version of %s was already processed, moving on", result_file)
-                return
+                return None,None
             else:
                 # remove previous occurrences in various indexes to be replaced by this one
                 logger.info("An older version of %s was processed, replacing with most recent one.", result_file)
-                self.files_features.pop(jt)
+                if jt in self.files_features.keys():
+                    self.files_features.pop(jt)
 
         try:
             doc = etree.parse(os.path.join(folder, result_file))
@@ -249,7 +251,14 @@ def main():
     corpus_root = config.get('MAIN', 'corpus_root')
     output_dir = config.get('MAIN', 'output_dir')
 
-    extractor = Extractor(corpus_root_folder=corpus_root, output_folder=output_dir, train=True)
+    print("What's up doc?")
+    train = input("Training data (1) or full monty (0)?")
+    if train == "1":
+        train = True
+    else:
+        train = False
+
+    extractor = Extractor(corpus_root_folder=corpus_root, output_folder=output_dir, train=train)
     extractor.process_enrichment_files()
 
     logger.info("File processing complete.")
