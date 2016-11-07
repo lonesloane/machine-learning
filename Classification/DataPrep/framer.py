@@ -123,7 +123,7 @@ class Extractor:
                     logger.info("processing: %s/%s", root, semantic_result_file)
                     jt, file_features = self._process_xml(root, semantic_result_file)
                     if jt and file_features:
-                        self.files_features[jt] = tuple(file_features)
+                        self.files_features[jt] = file_features
                         self.dated_features[date].extend(file_features)
                     idx += 1
                     if idx % 100 == 0:
@@ -131,7 +131,7 @@ class Extractor:
 
         self.logger.info("Total nb files processed: %s", idx)
         self.create_dataframes()
-        self.create_dated_dataframe()
+        # self.create_dated_dataframe()
         self.store_vectors()
 
     def store_vectors(self):
@@ -146,8 +146,8 @@ class Extractor:
         dic = dict()
         for date, features in self.dated_features.items():
             feature_vector = np.zeros(topics.max(0)+1, np.int8)
-            for i in features:
-                feature_vector[int(i)] += 1
+            for topic, weight in features.items():
+                feature_vector[int(topic)] += 1
             dic[date] = feature_vector
         df = pd.DataFrame.from_dict(dic, orient='index')
         logger.info("Dated DataFrame created")
@@ -166,11 +166,10 @@ class Extractor:
 
         vectors_list = []
 
-        timing.start_clock("Start Feature_Vectors creation")
         for jt, features in self.files_features.items():
             feature_vector = np.zeros(topics.max(0)+1, np.int8)
-            for i in features:
-                feature_vector[int(i)] = 1
+            for topic, weight in features.items():
+                feature_vector[int(topic)] = 1
             vectors_list.append(feature_vector)
 
         logger.debug("len vectors_list: {len}".format(len=len(vectors_list)))
@@ -182,7 +181,6 @@ class Extractor:
         df = pd.DataFrame(feature_vectors, index=files_array)
 
         self.store_as_hdf(df=df, target_file_name='feature_vectors.hdf', key='feature_vectors')
-        timing.stop_clock()
         logger.info("Feature_Vectors created successfully")
 
         return
@@ -205,16 +203,16 @@ class Extractor:
             doc = etree.parse(os.path.join(folder, result_file))
         except Exception as e:
             logger.error("Failed to load xml content for file: %s", result_file, exc_info=True)
-            return jt, []
+            return jt, {}
 
         root = doc.getroot()
-        file_features = []
+        file_features = {}
 
         for subject in root.findall("./annotation/subject"):
             topic_id = int(strip_uri(subject.get('uri')))
             label_en = subject.get('label_en')
-            # relevance = 'N' if subject.get('relevance') == 'normal' else 'H'
-            file_features.append(topic_id)
+            relevance = 'N' if subject.get('relevance') == 'normal' else 'H'
+            file_features[topic_id] = relevance
             if topic_id not in self.topics:
                 self.topics[topic_id] = label_en
 
@@ -241,7 +239,7 @@ class Extractor:
         :return: None
         """
         df.to_hdf(os.path.join(self.output_folder, target_file_name), key=key)
-        logger.info("Dated DataFrame saved to disk")
+        logger.info("DataFrame saved to disk")
         logger.debug(df.head(10))
         df.info()
 
@@ -262,7 +260,7 @@ def main():
     extractor.process_enrichment_files()
 
     logger.info("File processing complete.")
-    # logger.debug("Files features: {features}".format(features=extractor.files_features))
+    logger.debug("Files features: {features}".format(features=extractor.files_features))
     logger.info("Nb of files: {nb}".format(nb=len(extractor.files_features)))
     # logger.debug("Topics: {topics}".format(topics=extractor.topics))
     logger.info("Nb of topics: {nb}".format(nb=len(extractor.topics)))

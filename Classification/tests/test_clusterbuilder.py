@@ -1,4 +1,5 @@
 import unittest
+
 import DataPrep.clusterbuilder as cbuilder
 
 
@@ -12,11 +13,14 @@ class ClusterBuilderTestCase(unittest.TestCase):
         self.assertEqual(True, builder._train)
 
     def test_load_file_features(self):
-        builder = cbuilder.Builder()
+        builder = cbuilder.Builder('files_features.pkl')
 
         self.assertDictEqual({}, builder.file_features)
         builder.load_file_features()
         self.assertTrue(len(builder.file_features.keys()) > 0)
+        print('len file features: %d' % len(builder.file_features.keys()))
+        for k, v in builder.file_features.items():
+            print("key: %s | features: %s" % (k, v))
 
     def test_get_proximity(self):
         v1 = {1, 3, 5}

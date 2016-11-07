@@ -6,14 +6,14 @@ from configparser import ConfigParser
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 config = ConfigParser()
-config.read(os.path.join(basedir, 'framer.conf'))
+config.read(os.path.join(basedir, 'data.conf'))
 
 # Set appropriate logging level
-numeric_level = getattr(logging, config.get('LOGGING', 'level').upper(), None)
-if not isinstance(numeric_level, int):
+logging_level = getattr(logging, config.get('LOGGING', 'level').upper(), None)
+if not isinstance(logging_level, int):
     raise ValueError('Invalid log level: %s' % config.get('LOGGING', 'level'))
 logger = logging.getLogger(__name__)
-logger.setLevel(numeric_level)
+logger.setLevel(logging_level)
 # create file handler which logs even debug messages
 fh = logging.FileHandler(config.get('LOGGING', 'log_file'), mode='w')
 fh.setLevel(logging.DEBUG)
