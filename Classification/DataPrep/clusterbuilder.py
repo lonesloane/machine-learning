@@ -89,6 +89,135 @@ def trim_cluster(clusters, key, component, strict=True):
         pass
 
 
+class Grapher():
+    def __init__(self, output_folder, current_clusters, full_clusters_list, bound_clusters=None):
+        self.output_folder = output_folder
+        self.current_clusters = current_clusters
+        self.full_clusters_list = full_clusters_list
+        self.bound_clusters = bound_clusters
+        self.unique_id = 0
+
+    def graph_components(self, graph_name):
+        self.unique_id = 0
+        with open(os.path.join(self.output_folder, graph_name + '.graphml'), 'w') as graph_file:
+            graph_file.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+            graph_file.write('<graphml xmlns="http://graphml.graphdrawing.org/xmlns"'
+                             ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+                             ' xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns"'
+                             ' xmlns:y="http://www.yworks.com/xml/graphml">\n'
+                             ' <key for="node" id="d0" yfiles.type="nodegraphics"/>\n'
+                             ' <key for="edge" id="d1" yfiles.type="edgegraphics"/>\n'
+                             '  <graph edgedefault="undirected" id="G">\n')
+            for component_key in self.current_clusters:
+                component_key_id = self.get_id(component_key)
+                # NODE
+                graph_file.write(self.build_node(component_key, component_key_id))
+
+            graph_file.write('</graph>\n'
+                             '</graphml>\n')
+
+    def build_node(self, component_key, component_key_id):
+        has_inner = True if component_key in self.full_clusters_list \
+                            and len(self.full_clusters_list[component_key].components.keys()) > 1 \
+                            else False
+        node = '<node id="' + component_key_id + '"'
+        if has_inner:
+            node += ' yfiles.foldertype="group"'
+        node += '>\n'
+        if has_inner:
+            node += '<data key="d4"/>\n'
+            node += '<data key="d5">\n'
+            node += '<y:ProxyAutoBoundsNode>\n'
+            node += '<y:Realizers active="0">\n'
+            node += '<y:GroupNode>\n'
+            node += '<y:Fill color="#F8ECC9" transparent="false"/>\n'
+            node += '<y:Shape type="rectangle3d"/>\n'
+            node += '</y:GroupNode>\n'
+            node += '</y:Realizers>\n'
+            node += '</y:ProxyAutoBoundsNode>\n'
+            node += '</data>\n'
+        node += '<data key="d0">\n'
+        node += '<y:ShapeNode>\n'
+        node += '<y:Fill color="#FFCCCC" transparent="false"/>\n'
+        node += '<y:BorderStyle color="#000000" type="line" width="1.0"/>\n'
+        node += '<y:NodeLabel>' + component_key + '</y:NodeLabel>\n'
+        node += '<y:Shape type="rectangle"/>\n'
+        node += '</y:ShapeNode>\n'
+        node += '</data>\n'
+        if has_inner:
+            node += ' ' + self.inner_graph(component_key, component_key_id)
+        node += '</node>\n'
+        return node
+
+    def inner_graph(self, component_key, component_key_id):
+        if component_key not in self.full_clusters_list or len(self.full_clusters_list[component_key].components.keys()) <= 1:
+            return ''
+        inner_keys = []
+        self.get_children(inner_keys, component_key)
+        graph = '<graph edgedefault="undirected" id="'+component_key_id+'">\n'
+        for inner_key in set(inner_keys):
+            inner_key_id = self.get_id(inner_key)
+            # NODE
+            graph += self.build_node(inner_key, inner_key_id)
+        graph += '</graph>\n'
+        return graph
+
+    def get_children(self, inner_keys, key):
+        """
+        Recursively get the 'atomic' components
+        :param inner_keys:
+        :param key:
+        :return:
+        """
+        # if key not in self.components or len(self.components[key].components.keys()) <= 1:
+        if len(self.full_clusters_list[key].components.keys()) <= 1:
+            inner_keys.append(key)
+            return
+        keys = self.full_clusters_list[key].components.keys()
+        for inner_key in keys:
+            self.get_children(inner_keys, inner_key)
+
+    def graph_clusters(self, graph_name):
+        with open(os.path.join(self.output_folder, graph_name+'.graphml'), 'w') as graph_file:
+            graph_file.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+            graph_file.write('<graphml xmlns="http://graphml.graphdrawing.org/xmlns"'
+                             ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+                             ' xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns"'
+                             ' xmlns:y="http://www.yworks.com/xml/graphml">\n'
+                             ' <key for="node" id="d0" yfiles.type="nodegraphics"/>\n'
+                             ' <key for="edge" id="d1" yfiles.type="edgegraphics"/>\n'
+                             ' <key attr.name="description" attr.type="string" for="node" id="d4"/>\n'
+                             ' <key for="node" id="d5" yfiles.type="nodegraphics"/>\n'
+                             '  <graph edgedefault="undirected" id="G">\n')
+            for component_key in self.bound_clusters:
+                component_key_id = self.get_id(component_key)
+                # NODE
+                graph_file.write(self.build_node(component_key, component_key_id))
+
+                bound_keys = [k for k, _ in self.bound_clusters[component_key]]
+                for bound_key in bound_keys:
+                    bound_key_id = self.get_id(bound_key)
+
+                    # NODE
+                    graph_file.write(self.build_node(bound_key, bound_key_id))
+                    # EDGE
+                    graph_file.write(self.build_edge(component_key_id, bound_key_id))
+
+            graph_file.write('</graph>\n'
+                             '</graphml>\n')
+
+    def build_edge(self, component_key_id, bound_key_id):
+            edge = (
+                '<edge id="' + component_key_id + '-' + bound_key_id + '" directed="false" source="' + component_key_id
+                + '" target="' + bound_key_id + '">\n'
+                '</edge>\n')
+            return edge
+
+    def get_id(self, key):
+        self.unique_id += 1
+        return key + '::' + str(self.unique_id)
+
+
 class Cluster:
     def __init__(self, components, root=False):
         self.components = components
@@ -147,7 +276,7 @@ class Cluster:
                 return key.lower()
         else:
             # return str(uuid.uuid4())
-            cluster_key_index +=1
+            cluster_key_index += 1
             return 'cls_'+str(cluster_key_index)
 
 
@@ -181,9 +310,9 @@ class Builder:
             logger.info('-' * 20)
             self.clusterify(iter_nb)
             logger.info('=' * 20)
+
             # TODO: see how best to use the total proximity to control convergence
             # As it is right now, this is too strict
-
             resulting_proximity = self.get_clusters_mean_proximity()
             if resulting_proximity < self.mean_clusters_proximity:
                 break  # TODO: find a way to discard last iteration
@@ -282,151 +411,15 @@ class Builder:
         raise NotImplementedError('Abstract method should not be called directly.')
 
     def graph_components(self, graph_name):
-        self.unique_id = 0
-        with open(os.path.join(self.output_folder, graph_name+'.graphml'), 'w') as graph_file:
-            graph_file.write('<?xml version="1.0" encoding="UTF-8"?>\n')
-            graph_file.write('<graphml xmlns="http://graphml.graphdrawing.org/xmlns"'
-                             ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
-                             ' xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns"'
-                             ' xmlns:y="http://www.yworks.com/xml/graphml">\n'
-                             ' <key for="node" id="d0" yfiles.type="nodegraphics"/>\n'
-                             ' <key for="edge" id="d1" yfiles.type="edgegraphics"/>\n'
-                             '  <graph edgedefault="undirected" id="G">\n')
-            for component_key in self.current_clusters:
-                component_key_id = self.get_id(component_key)
-                # NODE
-                graph_file.write(self.build_node(component_key, component_key_id))
-
-            graph_file.write('</graph>\n'
-                             '</graphml>\n')
+        Grapher(output_folder=self.output_folder,
+                current_clusters=self.current_clusters,
+                full_clusters_list=self.full_clusters_list).graph_components(graph_name=graph_name)
 
     def graph_clusters(self, graph_name):
-        self.unique_id = 0
-        if self.graph_format == 'graphml':
-            self.graph_clusters_graphml(graph_name)
-            return
-        if self.graph_format == 'dot':
-            self.graph_clusters_dot(graph_name)
-            return
-        else:
-            raise ValueError('Unexpected format value "%s". Supported values are "dot" and "graphml"'
-                             % self.graph_format)
-
-    def graph_clusters_graphml(self, graph_name):
-        with open(os.path.join(self.output_folder, graph_name+'.graphml'), 'w') as graph_file:
-            graph_file.write('<?xml version="1.0" encoding="UTF-8"?>\n')
-            graph_file.write('<graphml xmlns="http://graphml.graphdrawing.org/xmlns"'
-                             ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
-                             ' xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns"'
-                             ' xmlns:y="http://www.yworks.com/xml/graphml">\n'
-                             ' <key for="node" id="d0" yfiles.type="nodegraphics"/>\n'
-                             ' <key for="edge" id="d1" yfiles.type="edgegraphics"/>\n'
-                             ' <key attr.name="description" attr.type="string" for="node" id="d4"/>\n'
-                             ' <key for="node" id="d5" yfiles.type="nodegraphics"/>\n'
-                             '  <graph edgedefault="undirected" id="G">\n')
-            for component_key in self.bound_clusters:
-                component_key_id = self.get_id(component_key)
-                # NODE
-                graph_file.write(self.build_node(component_key, component_key_id))
-
-                bound_keys = [k for k, _ in self.bound_clusters[component_key]]
-                for bound_key in bound_keys:
-                    bound_key_id = self.get_id(bound_key)
-
-                    # NODE
-                    graph_file.write(self.build_node(bound_key, bound_key_id))
-                    # EDGE
-                    graph_file.write(self.build_edge(component_key_id, bound_key_id))
-
-            graph_file.write('</graph>\n'
-                             '</graphml>\n')
-
-    def build_node(self, component_key, component_key_id):
-        has_inner = True if component_key in self.full_clusters_list \
-                            and len(self.full_clusters_list[component_key].components.keys()) > 1 \
-                            else False
-        node = '<node id="' + component_key_id + '"'
-        if has_inner:
-            node += ' yfiles.foldertype="group"'
-        node += '>\n'
-        if has_inner:
-            node += '<data key="d4"/>\n'
-            node += '<data key="d5">\n'
-            node += '<y:ProxyAutoBoundsNode>\n'
-            node += '<y:Realizers active="0">\n'
-            node += '<y:GroupNode>\n'
-            node += '<y:Fill color="#F8ECC9" transparent="false"/>\n'
-            node += '<y:Shape type="rectangle3d"/>\n'
-            node += '</y:GroupNode>\n'
-            node += '</y:Realizers>\n'
-            node += '</y:ProxyAutoBoundsNode>\n'
-            node += '</data>\n'
-        node += '<data key="d0">\n'
-        node += '<y:ShapeNode>\n'
-        node += '<y:Fill color="#FFCCCC" transparent="false"/>\n'
-        node += '<y:BorderStyle color="#000000" type="line" width="1.0"/>\n'
-        node += '<y:NodeLabel>' + component_key + '</y:NodeLabel>\n'
-        node += '<y:Shape type="rectangle"/>\n'
-        node += '</y:ShapeNode>\n'
-        node += '</data>\n'
-        if has_inner:
-            node += ' ' + self.inner_graph(component_key, component_key_id)
-        node += '</node>\n'
-        return node
-
-    def inner_graph(self, component_key, component_key_id):
-        if component_key not in self.full_clusters_list or len(self.full_clusters_list[component_key].components.keys()) <= 1:
-            return ''
-        inner_keys = []
-        self.get_children(inner_keys, component_key)
-        graph = '<graph edgedefault="undirected" id="'+component_key_id+'">\n'
-        for inner_key in set(inner_keys):
-            inner_key_id = self.get_id(inner_key)
-            # NODE
-            graph += self.build_node(inner_key, inner_key_id)
-        graph += '</graph>\n'
-        return graph
-
-    def build_edge(self, component_key_id, bound_key_id):
-            edge = (
-                '<edge id="' + component_key_id + '-' + bound_key_id + '" directed="false" source="' + component_key_id
-                + '" target="' + bound_key_id + '">\n'
-                '</edge>\n')
-            return edge
-
-    def get_children(self, inner_keys, key):
-        """
-        Recursively get the 'atomic' components
-        :param inner_keys:
-        :param key:
-        :return:
-        """
-        # if key not in self.components or len(self.components[key].components.keys()) <= 1:
-        if len(self.full_clusters_list[key].components.keys()) <= 1:
-            inner_keys.append(key)
-            return
-        keys = self.full_clusters_list[key].components.keys()
-        for inner_key in keys:
-            self.get_children(inner_keys, inner_key)
-
-    def get_id(self, key):
-        self.unique_id += 1
-        return key + '::' + str(self.unique_id)
-
-    def graph_clusters_dot(self, graph_name):
-        with open(os.path.join(self.output_folder, graph_name+'.dot'), 'w') as graph_file:
-            graph_file.write('graph off_doc_clusters\n'
-                             '{\n'
-                             'graph [bgcolor=white, splines=spline, overlap=false]\n'
-                             'edge [color=black]\n'
-                             'node [color=rosybrown, shape=box, fontname="Verdana", fontsize=14]\n')
-            for file in self.bound_clusters:
-                file_cluster = [k for k, v in self.bound_clusters[file]]
-                graph_file.write(file + ' [label="' + file + '"];\n')
-                for key in file_cluster:
-                    graph_file.write(key + ' [label="' + key + '", shape=ellipse, color=lightseagreen];\n')
-                    graph_file.write(file + '--' + key + '\n')
-            graph_file.write('}')
+        Grapher(output_folder=self.output_folder,
+                current_clusters=self.current_clusters,
+                full_clusters_list=self.full_clusters_list,
+                bound_clusters=self.bound_clusters).graph_clusters(graph_name=graph_name)
 
 
 class BuilderClumps(Builder):
@@ -476,7 +469,7 @@ class BuilderDiPoles(Builder):
     def initial_clustering(self, iter_nb):
         logger.info('generate bounds')
         self.generate_bounds()
-        # self.graph_clusters(graph_name='initial_clusters_%s' % iter_nb)
+        self.graph_clusters(graph_name='initial_clusters_%s' % iter_nb)
 
         # keep only the bounds with maximum strength
         self.trim_bounds()
@@ -574,8 +567,6 @@ class BuilderDiPoles(Builder):
         if len(orphans)>0:
             for key in orphans:
                 self.current_clusters[key] = self.full_clusters_list[key]
-        #logger.debug("Total number of components: %d" % self.nb_of_atoms())
-        #logger.debug('-'*30)
 
     def remove_double_edges(self):
         """

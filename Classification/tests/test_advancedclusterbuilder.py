@@ -131,23 +131,23 @@ class BuilderTestCase(unittest.TestCase):
     def setUp(self):
         builder.cluster_key_index = 0
 
-        builder = builder.Builder(input_data_file='Dummy.csv')
+        o_builder = builder.Builder(input_data_file='Dummy.csv')
 
         cluster = builder.Cluster({'jt01': {1: 1, 2: 1, 3: 1}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
         cluster = builder.Cluster({'jt02': {1: 1, 2: 1, 5: 1}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
         cluster = builder.Cluster({'jt03': {7: 1, 2: 1, 6: 1}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
         cluster = builder.Cluster({'jt04': {6: 1, 3: 1, 7: 1}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
         cluster = builder.Cluster({'jt05': {1: 1, 2: 1, 3: 1}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
 
         component1 = {'jt01': {1: 2, 3: 2, 5: 1}}
         cluster1 = builder.Cluster(component1, root=True)
@@ -165,8 +165,8 @@ class BuilderTestCase(unittest.TestCase):
                        cluster4.key: cluster4,
                        cluster5.key: cluster5}
         cluster10 = builder.Cluster(components1, root=False)
-        builder.full_clusters_list[cluster10.key] = cluster10
-        builder.current_clusters[cluster10.key] = cluster10
+        o_builder.full_clusters_list[cluster10.key] = cluster10
+        o_builder.current_clusters[cluster10.key] = cluster10
 
         component6 = {'jt06': {1: 2, 3: 2, 5: 1}}
         cluster6 = builder.Cluster(component6, root=True)
@@ -181,28 +181,28 @@ class BuilderTestCase(unittest.TestCase):
                        cluster8.key: cluster8,
                        cluster9.key: cluster9}
         cluster20 = builder.Cluster(components2, root=False)
-        builder.full_clusters_list[cluster20.key] = cluster20
-        builder.current_clusters[cluster20.key] = cluster20
+        o_builder.full_clusters_list[cluster20.key] = cluster20
+        o_builder.current_clusters[cluster20.key] = cluster20
 
-        self.builder = builder
+        self.builder = o_builder
 
     def test_init(self):
-        builder = builder.Builder(input_data_file='dummy.csv', graph_format='format')
-        self.assertEqual('dummy.csv', builder.input_data_file)
-        self.assertEqual('format', builder.graph_format)
-        self.assertDictEqual({}, builder.full_clusters_list)
-        self.assertDictEqual({}, builder.current_clusters)
-        self.assertDictEqual({}, builder.bound_clusters)
-        self.assertEqual(0, builder.unique_id)
+        o_builder = builder.Builder(input_data_file='dummy.csv', graph_format='format')
+        self.assertEqual('dummy.csv', o_builder.input_data_file)
+        self.assertEqual('format', o_builder.graph_format)
+        self.assertDictEqual({}, o_builder.full_clusters_list)
+        self.assertDictEqual({}, o_builder.current_clusters)
+        self.assertDictEqual({}, o_builder.bound_clusters)
+        self.assertEqual(0, o_builder.unique_id)
 
     def test_load_individual_components(self):
-        builder = builder.Builder('test_files_features.pkl')
-        builder.output_folder = '/home/stephane/Playground/PycharmProjects/machine-learning/Classification/tests/data/'
+        o_builder = builder.Builder('test_files_features.pkl')
+        o_builder.output_folder = '/home/stephane/Playground/PycharmProjects/machine-learning/Classification/tests/data/'
 
-        self.assertDictEqual({}, builder.current_clusters)
-        builder.load_individual_components()
-        self.assertEquals(len(builder.current_clusters.keys()),  5)
-        self.assertEquals(len(builder.full_clusters_list.keys()),  5)
+        self.assertDictEqual({}, o_builder.current_clusters)
+        o_builder.load_individual_components()
+        self.assertEquals(len(o_builder.current_clusters.keys()),  5)
+        self.assertEquals(len(o_builder.full_clusters_list.keys()),  5)
         '''
         self.assertEquals(len(builder.atoms.keys()),  5)
         self.assertTrue('jt01' in builder.atoms.keys())
@@ -221,33 +221,33 @@ class BuilderTestCase(unittest.TestCase):
         self.assertDictEqual({1: 1, 2: 1, 3: 1},
                              builder.atoms['jt05'].features)
         '''
-        self.assertTrue('jt01' in builder.current_clusters.keys())
-        self.assertTrue('jt02' in builder.current_clusters.keys())
-        self.assertTrue('jt03' in builder.current_clusters.keys())
-        self.assertTrue('jt04' in builder.current_clusters.keys())
-        self.assertTrue('jt05' in builder.current_clusters.keys())
+        self.assertTrue('jt01' in o_builder.current_clusters.keys())
+        self.assertTrue('jt02' in o_builder.current_clusters.keys())
+        self.assertTrue('jt03' in o_builder.current_clusters.keys())
+        self.assertTrue('jt04' in o_builder.current_clusters.keys())
+        self.assertTrue('jt05' in o_builder.current_clusters.keys())
         self.assertDictEqual({1: 1, 2: 1, 3: 1},
-                             builder.current_clusters['jt01'].features)
+                             o_builder.current_clusters['jt01'].features)
         self.assertDictEqual({1: 1, 2: 1, 5: 1},
-                             builder.current_clusters['jt02'].features)
+                             o_builder.current_clusters['jt02'].features)
         self.assertDictEqual({7: 1, 2: 1, 6: 1},
-                             builder.current_clusters['jt03'].features)
+                             o_builder.current_clusters['jt03'].features)
         self.assertDictEqual({6: 1, 3: 1, 7: 1},
-                             builder.current_clusters['jt04'].features)
+                             o_builder.current_clusters['jt04'].features)
         self.assertDictEqual({1: 1, 2: 1, 3: 1},
-                             builder.current_clusters['jt05'].features)
+                             o_builder.current_clusters['jt05'].features)
 
     def test_clear_bound_clusters(self):
-        builder = builder.Builder(input_data_file='dummy.csv')
-        builder.bound_clusters = dict()
-        builder.bound_clusters['jt01'] = [1, 2, 3]
-        builder.bound_clusters['jt02'] = [3, 2, 1]
-        self.assertEqual([1,2,3], builder.bound_clusters['jt01'])
-        self.assertEqual([3,2,1], builder.bound_clusters['jt02'])
-        builder.clear_bound_clusters('jt02')
-        self.assertFalse('jt02' in builder.bound_clusters)
-        builder.clear_bound_clusters('jt01')
-        self.assertFalse('jt01' in builder.bound_clusters)
+        o_builder = builder.Builder(input_data_file='dummy.csv')
+        o_builder.bound_clusters = dict()
+        o_builder.bound_clusters['jt01'] = [1, 2, 3]
+        o_builder.bound_clusters['jt02'] = [3, 2, 1]
+        self.assertEqual([1,2,3], o_builder.bound_clusters['jt01'])
+        self.assertEqual([3,2,1], o_builder.bound_clusters['jt02'])
+        o_builder.clear_bound_clusters('jt02')
+        self.assertFalse('jt02' in o_builder.bound_clusters)
+        o_builder.clear_bound_clusters('jt01')
+        self.assertFalse('jt01' in o_builder.bound_clusters)
 
     def test_merge_clusters(self):
         self.builder.bound_clusters = {'cls_1': [('cls_2', 1)]}
@@ -334,7 +334,7 @@ class BuilderTestCase(unittest.TestCase):
         self.assertEqual(1, cluster_components.count(('jt01', 'jt03', 'jt04', 'jt05')))
 
     def test_nb_of_components(self):
-        builder = builder.Builder('dummy.csv')
+        o_builder = builder.Builder('dummy.csv')
 
         component1 = {'jt01': {1: 2, 3: 2, 5: 1}}
         cluster1 = builder.Cluster(component1, root=True)
@@ -352,11 +352,11 @@ class BuilderTestCase(unittest.TestCase):
                       cluster4.key: cluster4,
                       cluster5.key: cluster5}
         cluster = builder.Cluster(components, root=False)
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
 
-        self.assertEqual(5, builder.nb_of_atoms())
+        self.assertEqual(5, o_builder.nb_of_atoms())
 
-        builder.current_clusters = {}
+        o_builder.current_clusters = {}
         component1 = {'jt01': {1: 2, 3: 2, 5: 1}}
         cluster1 = builder.Cluster(component1, root=True)
         component2 = {'jt02': {1: 1, 2: 5, 5: 1}}
@@ -364,8 +364,8 @@ class BuilderTestCase(unittest.TestCase):
         components = {cluster1.key: cluster1,
                       cluster2.key: cluster2}
         cluster = builder.Cluster(components, root=False)
-        builder.current_clusters[cluster.key] = cluster
-        self.assertEqual(2, builder.nb_of_atoms())
+        o_builder.current_clusters[cluster.key] = cluster
+        self.assertEqual(2, o_builder.nb_of_atoms())
 
         component3 = {'jt03': {1: 1, 3: 1, 4: 1}}
         cluster3 = builder.Cluster(component3, root=True)
@@ -374,8 +374,8 @@ class BuilderTestCase(unittest.TestCase):
         components = {cluster3.key: cluster3,
                       cluster4.key: cluster4}
         cluster = builder.Cluster(components, root=False)
-        builder.current_clusters[cluster.key] = cluster
-        self.assertEqual(4, builder.nb_of_atoms())
+        o_builder.current_clusters[cluster.key] = cluster
+        self.assertEqual(4, o_builder.nb_of_atoms())
 
         component1 = {'jt05': {1: 2, 3: 2, 5: 1}}
         cluster1 = builder.Cluster(component1, root=True)
@@ -387,33 +387,33 @@ class BuilderTestCase(unittest.TestCase):
                       cluster2.key: cluster2,
                       cluster5.key: cluster5}
         cluster = builder.Cluster(components, root=False)
-        builder.current_clusters[cluster.key] = cluster
-        self.assertEqual(6, builder.nb_of_atoms())
+        o_builder.current_clusters[cluster.key] = cluster
+        self.assertEqual(6, o_builder.nb_of_atoms())
 
 
 class BuilderDipolesTestCase(unittest.TestCase):
 
     def setUp(self):
-        builder = builder.BuilderDiPoles(input_data_file='Dummy.csv')
+        o_builder = builder.BuilderDiPoles(input_data_file='Dummy.csv')
         cluster = builder.Cluster({'jt01': {1: 1, 2: 10, 3: 1}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
         cluster = builder.Cluster({'jt02': {1: 1, 2: 1, 5: 1}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
         cluster = builder.Cluster({'jt03': {7: 10, 2: 1, 6: 1}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
         cluster = builder.Cluster({'jt04': {6: 1, 3: 1, 7: 1}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
         cluster = builder.Cluster({'jt05': {1: 10, 2: 1, 3: 10}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
         cluster = builder.Cluster({'jt07': {1: 10, 2: 1, 3: 10}}, root=True)
-        builder.full_clusters_list[cluster.key] = cluster
-        builder.current_clusters[cluster.key] = cluster
-        self.builder = builder
+        o_builder.full_clusters_list[cluster.key] = cluster
+        o_builder.current_clusters[cluster.key] = cluster
+        self.builder = o_builder
 
     def test_generate_bounds(self):
         self.builder.generate_bounds()
