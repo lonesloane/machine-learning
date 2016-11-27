@@ -5,8 +5,8 @@ import sys
 import pprint
 from DataPrep import logger
 
-training_data_folder = '/media/Data/OECD/Machine Learning/Mappings/Corpora'
-topics_definition_folder = '/media/Data/OECD/Machine Learning/Mappings/KappaWebTopics/'
+training_data_folder = '/media/stephane/Storage/OECD/Machine Learning/Mappings/Corpora'
+topics_definition_folder = '/media/stephane/Storage/OECD/Machine Learning/Mappings/KappaWebTopics/'
 output_folder = 'output/train'
 
 
@@ -31,6 +31,8 @@ class JsonParser:
 
     def __init__(self):
         self.web_topics = dict()
+        self.clusters_lvl1 = dict()
+        self.clusters_lvl2 = dict()
         self.web_topics_definition = dict()
         self.web_topics_duplicates = dict()
         self.file_mappings = dict()
@@ -65,16 +67,28 @@ class JsonParser:
         logger.info('Nb files mapped: %s' % len(self.file_mappings))
         self.save_topics()
         self.save_mappings()
+        self.save_clusters()
 
-        print('*'*30)
-        print('Topics')
-        print('-'*30)
-        pprint.pprint(self.web_topics)
-        print('-'*30)
-        print('Mappings')
-        print('-'*30)
-        pprint.pprint(self.file_mappings)
-        print('*' * 30)
+        logger.info('*'*30)
+        logger.info('Topics')
+        logger.info('-'*30)
+        logger.info(pprint.pformat(self.web_topics))
+        logger.info(pprint.pformat(self.web_topics))
+        logger.info('-'*30)
+        logger.info('Mappings')
+        logger.info('-'*30)
+        logger.info(pprint.pformat(self.file_mappings))
+        logger.info('-'*30)
+        logger.info('Clusters Level I')
+        logger.info('-'*30)
+        logger.info(pprint.pformat(self.clusters_lvl1))
+        '''
+        logger.info('-'*30)
+        logger.info('Clusters Level II')
+        logger.info('-'*30)
+        logger.info(pprint.pformat(self.clusters_lvl2))
+        '''
+        logger.info('*' * 30)
 
     def process_json(self, root, json_file):
         with open(os.path.join(root, json_file), 'r', encoding='utf-8-sig') as json_in:
@@ -87,12 +101,23 @@ class JsonParser:
                 logger.debug("lvl1: {lvl1}".format(lvl1=lvl1))
                 logger.debug("lvl2: {lvl2}".format(lvl2=lvl2))
                 logger.debug("jt: {jt}".format(jt=jt))
+
+                if lvl1 not in self.clusters_lvl1:
+                    self.clusters_lvl1[lvl1] = list()
+                if jt not in self.clusters_lvl1[lvl1]:
+                    self.clusters_lvl1[lvl1].append(jt)
+                if lvl2 not in self.clusters_lvl2:
+                    self.clusters_lvl2[lvl2] = list()
+                if jt not in self.clusters_lvl2[lvl2]:
+                    self.clusters_lvl2[lvl2].append(jt)
+
                 if lvl1 not in self.web_topics:
                     self.web_topics[lvl1] = list()
                 if lvl2 not in self.web_topics_definition.keys():
                     continue
                 if lvl2 not in self.web_topics[lvl1]:
                     self.web_topics[lvl1].append(lvl2)
+
                 if jt not in self.file_mappings:
                     self.file_mappings[jt] = list()
                 if lvl2 not in self.file_mappings[jt]:
@@ -143,6 +168,12 @@ class JsonParser:
     def save_mappings(self):
         with open(os.path.join(output_folder, 'mappings.pkl'), 'wb') as out:
             pickle.dump(self.file_mappings, out)
+
+    def save_clusters(self):
+        with open(os.path.join(output_folder, 'clusters_lvl_I.pkl'), 'wb') as out:
+            pickle.dump(self.clusters_lvl1, out)
+        with open(os.path.join(output_folder, 'clusters_lvl_II.pkl'), 'wb') as out:
+            pickle.dump(self.clusters_lvl2, out)
 
 
 def main():

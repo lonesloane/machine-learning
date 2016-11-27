@@ -93,3 +93,4 @@ ENV/
 
 # Data files
 output/
+data/

@@ -188,6 +188,8 @@ class Grapher():
                              ' <key for="edge" id="d1" yfiles.type="edgegraphics"/>\n'
                              ' <key attr.name="description" attr.type="string" for="node" id="d4"/>\n'
                              ' <key for="node" id="d5" yfiles.type="nodegraphics"/>\n'
+                             ' <key attr.name="description" attr.type="string" for="edge" id="d8"/>\n'
+                             ' <key for="edge" id="d9" yfiles.type="edgegraphics"/>\n'
                              '  <graph edgedefault="undirected" id="G">\n')
             for component_key in self.bound_clusters:
                 component_key_id = self.get_id(component_key)
@@ -208,7 +210,7 @@ class Grapher():
 
     def build_edge(self, component_key_id, bound_key_id):
             edge = (
-                '<edge id="' + component_key_id + '-' + bound_key_id + '" directed="false" source="' + component_key_id
+                '<edge id="' + component_key_id + '-' + bound_key_id + '" source="' + component_key_id
                 + '" target="' + bound_key_id + '">\n'
                 '</edge>\n')
             return edge
@@ -219,10 +221,10 @@ class Grapher():
 
 
 class Cluster:
-    def __init__(self, components, root=False):
+    def __init__(self, components, root=False, key=None):
         self.components = components
         self.root = root
-        self.key = Cluster.create_key(self.components, root)
+        self.key = key if key else Cluster.create_key(self.components, root)
         self.length = len(self.components.keys())
         if root:
             self.atoms = components
@@ -294,6 +296,7 @@ class Builder:
 
         self.full_clusters_list = {}
         self.current_clusters = {}
+        self.previous_clusters = {}
         self.bound_clusters = {}
 
     def process(self):
@@ -315,16 +318,22 @@ class Builder:
             # As it is right now, this is too strict
             resulting_proximity = self.get_clusters_mean_proximity()
             if resulting_proximity < self.mean_clusters_proximity:
-                break  # TODO: find a way to discard last iteration
+                self.current_clusters = self.previous_clusters # discard this last iteration
+                self.report()
+                self.graph_components(graph_name='final_clusters')
+                break
             else:
                 self.mean_clusters_proximity = resulting_proximity
-
             iter_nb += 1
+
+        # Report final state:
+        self.report_final()
 
     def clusterify(self, iter_nb):
         raise NotImplementedError("Abstract method should not be called directly.")
 
     def merge_clusters(self):
+        self.previous_clusters = copy.deepcopy(self.current_clusters)
         self.current_clusters = {}
         for key, bound in self.bound_clusters.items():
             components = dict()
@@ -395,6 +404,28 @@ class Builder:
 
         logger.info('-'*20)
 
+    def report_final(self):
+        logger.info('='*20)
+        logger.info("Clusters:")
+        logger.info('-'*20)
+        logger.info("Number of clusters: %d" % len(self.current_clusters))
+        logger.info('-'*20)
+
+        for cluster_key in self.current_clusters:
+            logger.info('cluster: %s' % cluster_key)
+            logger.info('mean proximity: %s' % self.full_clusters_list[cluster_key].mean_proximity)
+            logger.info('features:')
+            for k,v in self.full_clusters_list[cluster_key].features.items():
+                logger.info("{}: {}".format(k,v))
+            logger.info('inner atoms: %s ' % self.full_clusters_list[cluster_key].atoms.keys())
+            logger.info('-'*20)
+
+        logger.info('='*20)
+
+    def save(self):
+        with open(os.path.join(self.output_folder, 'computed_clusters.pkl'), 'wb') as out:
+            pickle.dump(self.current_clusters, out)
+
     def nb_of_atoms(self):
         atoms_list = list()
         nb_components = 0
@@ -458,36 +489,43 @@ class BuilderDiPoles(Builder):
 
     def clusterify(self, iter_nb):
         self.initial_clustering(iter_nb)
-        # self.graph_clusters(graph_name='initial_clusters_%s' % iter_nb)
+        if logging_level == logging.DEBUG:
+            self.graph_clusters(graph_name='initial_clusters_%s' % iter_nb)
         self.remove_double_edges()
-        # self.graph_clusters(graph_name='double_trimmed_clusters_%s' % iter_nb)
+        if logging_level == logging.DEBUG:
+            self.graph_clusters(graph_name='double_trimmed_clusters_%s' % iter_nb)
         self.trim_clusters()
-        self.graph_components(graph_name='trimmed_clusters_%s' % iter_nb)
+        if logging_level == logging.DEBUG:
+            self.graph_components(graph_name='trimmed_clusters_%s' % iter_nb)
+
         self.report()
-        # self.graph_components(graph_name='components_%s' % iter_nb)
 
     def initial_clustering(self, iter_nb):
         logger.info('generate bounds')
         self.generate_bounds()
-        self.graph_clusters(graph_name='initial_clusters_%s' % iter_nb)
+        if logging_level == logging.INFO:
+            self.graph_clusters(graph_name='initial_clusters_%s' % iter_nb)
 
         # keep only the bounds with maximum strength
         self.trim_bounds()
         logger.info("Total number of components: %d" % self.nb_of_atoms())
         logger.info('-'*30)
-        # self.graph_clusters(graph_name='trimmed_bounds_clusters_%s' % iter_nb)
+        if logging_level == logging.DEBUG:
+            self.graph_clusters(graph_name='trimmed_bounds_clusters_%s' % iter_nb)
 
         logger.info('merge clusters')
         self.merge_clusters()
         logger.info("Total number of components: %d" % self.nb_of_atoms())
         logger.info('-'*30)
-        # self.graph_components(graph_name='merged_clusters_%s' % iter_nb)
+        if logging_level == logging.DEBUG:
+            self.graph_components(graph_name='merged_clusters_%s' % iter_nb)
 
         logger.info('remove duplicates')
         self.remove_duplicates()
         logger.info("Total number of components: %d" % self.nb_of_atoms())
         logger.info('-'*30)
-        # self.graph_components(graph_name='deduplicated_clusters_%s' % iter_nb)
+        if logging_level == logging.DEBUG:
+            self.graph_components(graph_name='deduplicated_clusters_%s' % iter_nb)
 
         if self.orphans and len(self.orphans) > 0:
             for key in self.orphans:
@@ -590,13 +628,13 @@ class BuilderDiPoles(Builder):
 
 
 def main():
-    # input_data_file = 'files_features.pkl'
-    # output_folder = '/home/stephane/Playground/PycharmProjects/machine-learning/Classification/DataPrep/output/train'
+    #input_data_file = 'files_features.pkl'
+    #output_folder = '/home/stephane/Playground/PycharmProjects/machine-learning/Classification/DataPrep/output/train'
 
     input_data_file = 'random_files_features.pkl'
     output_folder = '/home/stephane/Playground/PycharmProjects/machine-learning/Classification/tests/data/'
 
-    min_nb_clusters = 20
+    min_nb_clusters = 2
     max_iter = 10
 
     global cluster_key_index
@@ -607,6 +645,7 @@ def main():
                              max_iter=max_iter)
     builder.output_folder = output_folder
     builder.process()
+    builder.save()
 
 if __name__ == '__main__':
     sys.exit(main())
